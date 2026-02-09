@@ -5,7 +5,7 @@ Este agente es un **asistente conversacional de ventas** diseñado para ayudar a
 ### Funciones principales
 
 - Explorar productos disponibles  
-- Mostrar información clara y verificada  
+- Mostrar información clara y verificada (Tiempo de respuesta: 10 segundos) 
 - Crear y gestionar un carrito de compras  
 - Derivar a un agente humano para finalizar la compra
 - Derivar a un agente humano para otras consultas  
@@ -121,6 +121,8 @@ El agente envía el contexto completo de la conversación:
 - Estado del carrito  
 - Información relevante para ventas  
 
+Ademas al momento de solicitar un agente ya sea para finalizar una compra o por alguna consulta le llega un mail al agente especifico avisandole que tiene un cliente asignado
+
 #### Endpoint
 ```http
 POST /fetch
@@ -143,68 +145,138 @@ action: handoff_to_human
 8. Derivación inmediata a un agente humano  
 
 ---
+## 5. Diagramas de secuencia del Agente (por caso de uso)
 
-## 5. Diagrama de secuencia del Agente
+Cada diagrama representa un **caso de uso específico** para mantener el flujo claro y desacoplado.
+
+---
+
+### 5.1 Explorar productos (búsqueda)
 
 ```mermaid
 sequenceDiagram
-    autonumber
-    participant U as Usuario
-    participant A as Agente IA
-    participant B as Backend (Cloudflare Worker)
+  autonumber
+  participant U as Usuario
+  participant A as Agente IA
+  participant B as Backend (Cloudflare Worker)
 
-    U->>A: "Estoy buscando X"
-    A->>B: list_products { query: "x" }
-    B-->>A: { count, products[] }
-    A-->>U: Lista (máx 10) + sugerencia de refinar si hay más
-
-    alt Usuario pide detalles
-        U->>A: "Mostrame el detalle del producto 001"
-        A->>B: get_product_details { product_code: "001" }
-        B-->>A: { product }
-        A-->>U: Nombre + descripción + precio + stock + código
-    end
-
-    alt Intención clara de compra
-        U->>A: "Quiero comprar el 001 (2 unidades)"
-        opt Si no existe cart_id aún
-            A->>B: create_cart {}
-            B-->>A: { cart_id }
-            A-->>A: Guardar cart_id para toda la conversación
-        end
-        A->>B: update_cart { cart_id, op:"add", product_code:"001", qty:2 }
-        B-->>A: { status, cart_id, product_code, qty }
-        A-->>U: Confirmación breve + opción de ver carrito
-    end
-
-    opt Usuario quiere ver el carrito
-        U->>A: "Ver carrito"
-        A->>B: get_cart { cart_id }
-        B-->>A: { cart_id, items[] }
-        A-->>U: Resumen del carrito (productos + cantidades + total si corresponde)
-    end
-
-    opt Usuario pide editar carrito
-        U->>A: "Cambiá el 001 a 3" / "Sacá el 001"
-        A->>B: update_cart { cart_id, op:"set_qty", product_code:"001", qty:3 }
-        B-->>A: { status, cart_id, product_code, qty }
-        A-->>U: Confirmación breve
-    end
-
-    alt Usuario pide finalizar compra
-        U->>A: "Quiero finalizar"
-        A->>B: get_cart { cart_id }
-        B-->>A: { cart_id, items[] }
-        A-->>U: Resumen + mensaje de handoff (carrito y total)
-        A->>B: handoff_to_human { note/context }
-        B-->>A: { status:"handoff_requested" }
-    else Usuario pide hablar con humano
-        U->>A: "Quiero hablar con una persona"
-        A-->>U: Mensaje con contexto para ventas
-        A->>B: handoff_to_human { note/context }
-        B-->>A: { status:"handoff_requested" }
-    end
+  U->>A: "Estoy buscando X"
+  A->>B: list_products { query: "x" }
+  B-->>A: { count, products[] }
+  A-->>U: Lista (máx 10) + sugerencia de refinar si hay más
 ```
+
+---
+
+### 5.2 Consultar detalle de un producto
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant U as Usuario
+  participant A as Agente IA
+  participant B as Backend (Cloudflare Worker)
+
+  U->>A: "Mostrame el detalle del producto 001"
+  A->>B: get_product_details { product_code: "001" }
+  B-->>A: { product }
+  A-->>U: Nombre + descripción + precio + stock + código
+```
+
+---
+
+### 5.3 Crear carrito y agregar producto (intención de compra)
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant U as Usuario
+  participant A as Agente IA
+  participant B as Backend (Cloudflare Worker)
+
+  U->>A: "Quiero comprar el 001 (2 unidades)"
+
+  opt Si no existe cart_id aún
+    A->>B: create_cart {}
+    B-->>A: { cart_id }
+    A-->>A: Guardar cart_id para toda la conversación
+  end
+
+  A->>B: update_cart { cart_id, op:"add", product_code:"001", qty:2 }
+  B-->>A: { status, cart_id, product_code, qty }
+  A-->>U: Confirmación breve + opción de ver carrito
+```
+
+---
+
+### 5.4 Ver carrito
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant U as Usuario
+  participant A as Agente IA
+  participant B as Backend (Cloudflare Worker)
+
+  U->>A: "Ver carrito"
+  A->>B: get_cart { cart_id }
+  B-->>A: { cart_id, items[] }
+  A-->>U: Resumen del carrito (productos + cantidades)
+```
+
+---
+
+### 5.5 Editar carrito
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant U as Usuario
+  participant A as Agente IA
+  participant B as Backend (Cloudflare Worker)
+
+  U->>A: "Cambiá el 001 a 3" / "Sacá el 001"
+  A->>B: update_cart { cart_id, op:"set_qty|remove", product_code:"001", qty:3 }
+  B-->>A: { status, cart_id, product_code, qty }
+  A-->>U: Confirmación breve
+```
+
+---
+
+### 5.6 Finalizar compra (handoff a humano)
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant U as Usuario
+  participant A as Agente IA
+  participant B as Backend (Cloudflare Worker)
+
+  U->>A: "Quiero finalizar"
+  A->>B: get_cart { cart_id }
+  B-->>A: { cart_id, items[] }
+  A-->>U: Resumen + mensaje de handoff (carrito y total)
+  A->>B: handoff_to_human { note/context }
+  B-->>A: { status:"handoff_requested" }
+```
+
+---
+
+### 5.7 Solicitud de hablar con un humano (otras consultas)
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant U as Usuario
+  participant A as Agente IA
+  participant B as Backend (Cloudflare Worker)
+
+  U->>A: "Quiero hablar con una persona"
+  A-->>U: Mensaje con contexto para ventas
+  A->>B: handoff_to_human { note/context }
+  B-->>A: { status:"handoff_requested" }
+```
+
 
 ## 6. Detalle de el input y output de cada endpoint (Request / Response)
 
