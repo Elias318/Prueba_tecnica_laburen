@@ -7,7 +7,8 @@ Este agente es un **asistente conversacional de ventas** diseñado para ayudar a
 - Explorar productos disponibles  
 - Mostrar información clara y verificada  
 - Crear y gestionar un carrito de compras  
-- Derivar a un agente humano para finalizar la compra  
+- Derivar a un agente humano para finalizar la compra
+- Derivar a un agente humano para otras consultas  
 
 El agente prioriza la **claridad, precisión y control del flujo**, evitando suposiciones y manteniendo siempre la información alineada con el backend.
 
@@ -143,51 +144,7 @@ action: handoff_to_human
 
 ---
 
-## 5. Diagrama de Flujo del Agente
-
-```mermaid
-flowchart TD
-    A[Inicio de la conversación] --> B[Explorar productos]
-    B -->|Resultados| C[Mostrar productos]
-    C -->|Solicita detalle| D[Mostrar detalle del producto]
-    C -->|Intención de compra| E[Crear carrito]
-    D -->|Intención de compra| E
-    E --> F[Carrito creado]
-    F -->|Editar carrito| G[Actualizar carrito]
-    G --> F
-    F -->|Ver carrito| H[Mostrar carrito]
-    H -->|Finalizar compra| I[Derivar a humano]
-```
-
----
-
-## 6. Reglas Clave del Diseño
-
-- El agente **no inventa información**  
-- No afirma acciones que no haya ejecutado  
-- La búsqueda depende de cómo esté cargada la información  
-- Si no hay resultados, informa y ofrece alternativas  
-- Mantiene un flujo de compra controlado  
-- Evita mensajes extensos o redundantes  
-- Prioriza la derivación humana para pagos y logística  
-
----
-
-## 7. Resultado Esperado
-
-Un agente de ventas conversacional que:
-
-- Reduce fricción en el proceso de compra  
-- Evita errores de stock, precios o productos  
-- Acompaña al usuario de forma clara y eficiente  
-- Entrega al humano todo el contexto necesario para cerrar la venta  
-
-
-
-
-# 🗺️ Mapa de Flujo · Agente de Ventas (Explorar → Carrito → Editar)
-
-## 1) Diagrama de secuencia (recomendado)
+## 5. Diagrama de secuencia del Agente
 
 ```mermaid
 sequenceDiagram
@@ -249,3 +206,156 @@ sequenceDiagram
     end
 ```
 
+## 6. Detalle de el input y output de cada endpoint (Request / Response)
+
+
+### list_products
+
+**Request**
+```json
+{
+  "action": "list_products",
+  "params": {
+    "query": "texto de búsqueda"
+  }
+}
+```
+
+**Response**
+```json
+{
+  "count": 3,
+  "products": [
+    {
+      "product_code": "001",
+      "name": "Producto A",
+      "description": "Descripción",
+      "price": 1000,
+      "stock": 10
+    }
+  ]
+}
+```
+
+---
+
+### get_product_details
+
+**Request**
+```json
+{
+  "action": "get_product_details",
+  "params": {
+    "product_code": "001"
+  }
+}
+```
+
+**Response**
+```json
+{
+  "product": {
+    "product_code": "001",
+    "name": "Producto A",
+    "description": "Descripción",
+    "price": 1000,
+    "stock": 10
+  }
+}
+```
+
+---
+
+### create_cart
+
+**Request**
+```json
+{
+  "action": "create_cart",
+  "params": {}
+}
+```
+
+**Response**
+```json
+{
+  "cart_id": 123
+}
+```
+
+---
+
+### update_cart
+
+**Request**
+```json
+{
+  "action": "update_cart",
+  "params": {
+    "cart_id": 123,
+    "op": "add",
+    "product_code": "001",
+    "qty": 2
+  }
+}
+```
+
+**Response**
+```json
+{
+  "status": "added",
+  "cart_id": 123,
+  "product_code": "001",
+  "qty": 2
+}
+```
+
+---
+
+### get_cart
+
+**Request**
+```json
+{
+  "action": "get_cart",
+  "params": {
+    "cart_id": 123
+  }
+}
+```
+
+**Response**
+```json
+{
+  "cart_id": 123,
+  "items": [
+    {
+      "product_code": "001",
+      "name": "Producto A",
+      "qty": 2
+    }
+  ]
+}
+```
+
+---
+
+### handoff_to_human
+
+**Request**
+```json
+{
+  "action": "handoff_to_human",
+  "params": {
+    "reason": "finalizar_compra",
+    "context": "Resumen del carrito y consultas del usuario"
+  }
+}
+```
+
+**Response**
+```json
+{
+  "status": "handoff_requested"
+}
+```
